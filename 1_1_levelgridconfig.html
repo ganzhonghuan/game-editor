@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<!-- saved from url=(0091)http://101.132.252.127/config/1_1_levelgridconfig.html?blockType=12&levelHeight=8&winType=1 -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>可配置关卡编辑器</title>
+    <style>
+        /* 样式部分保持不变 */
+        .container { max-width: 1200px; margin: 20px auto; padding: 20px; font-family: Arial; }
+        .form-group { margin-bottom: 15px; display: flex; align-items: center; }
+        label { display: inline-block; width: 180px; margin-right: 10px; }
+        input, select { flex: 1; padding: 6px; max-width: 200px; }
+        .grid-container { display: grid; gap: 2px; background: #333; padding: 5px; }
+        .grid-cell { 
+            width: 30px; height: 30px; 
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: bold; cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .cell-0 { background: white; color: #333; }
+        .cell-1 { background: #dad9d9; color: #333; }
+        .cell-2 { background: #616161; color: white; }
+        .cell-11 { background: #4CAF50; color: white; }
+        .cell-12 { background: #00BCD4; color: white; }
+        .cell-13 { background: #2196F3; color: white; }
+        .cell-14 { background: #dbdbdb; color: #333;}
+        .cell-15 { background: #9C27B0; color: white; }
+        .cell-16 { background: #FFEB3B; color: #333; }
+        .cell-17 { background: #F44336; color: white; }
+        .error-marker {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 2px solid #ff0000;
+            top: -2px;
+            left: -2px;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.8; }
+            50% { opacity: 0.4; }
+            100% { opacity: 0.8; }
+        }
+        .coord {
+            position: absolute;
+            font-size: 6px;
+            bottom: 1px;
+            right: 1px;
+            color: #666;
+        }
+        .counter { margin: 10px 0; padding: 8px; border-radius: 4px; }
+        .counter.ok { background: #E8F5E9; color: #2E7D32; }
+        .counter.over { background: #FFEBEE; color: #C62828; }
+        button { 
+            padding: 8px 16px; 
+            margin-right: 10px; 
+            background: #2F27CE; 
+            color: white; 
+            border: none; 
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        #configOutput {
+            background: #f5f5f5;
+            padding: 15px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            border-radius: 4px;
+            font-family: Consolas, monospace;
+        }
+        .diamond-setting { display: none; }
+        .color-legend { padding: 10px; background: #f5f5f5; margin: 10px 0; }
+        .color-box { width: 12px; height: 12px; display: inline-block; margin-right: 5px; }
+        .diamond-colors { display: flex; gap: 10px; margin: 10px 0; }
+        .diamond-colors input { width: 60px; }
+        #diamondCounter {
+        display: block;
+        margin: 10px 0;
+        padding: 8px;
+        border-radius: 4px;
+        }
+        #diamondWarning {
+            font-size: 14px;
+            vertical-align: middle;
+        }
+        #diamondWarning:before {
+            content: "⚠️ ";
+            margin-right: 4px;
+        }
+        .config-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        .config-table th, .config-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            min-width: 40px;
+            text-align: center;
+        }
+        .config-table th {
+            background-color: #2F27CE;
+            color: white;
+        }
+        .config-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        #gridError {
+        margin-top: -8px;
+        border: 1px solid #FFB74D;
+        padding: 10px;
+        font-size: 13px;
+        }
+        #gridError div {
+          margin: 3px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-group">
+            <label>胜利条件：</label>
+            <select id="winType">
+                <option value="1">积分通关</option>
+                <option value="2">收集通关</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="diamondSetting" style="display:none;">
+            <div style="width:100%">
+                <div class="diamond-colors">
+                    <div>
+                        颜色1
+                        <input type="number" id="color1" min="11" max="17">
+                        颜色2
+                        <input type="number" id="color2" min="11" max="17">
+                        颜色3
+                        <input type="number" id="color3" min="11" max="17">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group" id="diamondCountGroup" style="display:none;">
+            <label>钻石生成数量：</label>
+            <input type="number" id="diamondCount" value="5" min="1">
+        </div>
+
+        <div class="form-group">
+            <label>横向块数：</label>
+            <select id="blockType">
+                <option value="12">12</option>
+                <option value="18">18</option>
+                <option value="24">24</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>纵向层数：</label>
+            <select id="levelHeight">
+                <option value="8">8</option>
+                <option value="12">12</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>最大障碍物：</label>
+            <input type="number" id="maxObstacles" value="0" min="0" max="50">
+        </div>
+
+
+        
+        <div class="color-legend">
+            <span><div class="color-box" style="background:#4CAF50"></div>11=绿</span>
+            <span><div class="color-box" style="background:#00BCD4"></div>12=蓝光</span>
+            <span><div class="color-box" style="background:#2196F3"></div>13=蓝</span>
+            <span><div class="color-box" style="background:#dbdbdb"></div>14=白</span>
+            <span><div class="color-box" style="background:#9C27B0"></div>15=紫</span>
+            <span><div class="color-box" style="background:#FFEB3B"></div>16=黄</span>
+            <span><div class="color-box" style="background:#F44336"></div>17=红</span>
+        </div>
+        
+        <div class="form-group">
+            <div style="border: 2px solid #ddd; padding: 15px; border-radius: 8px; width: 100%;">
+                <h3 style="margin-top:0;">关卡编辑器 
+                    <button onclick="initGrid()">🔄 重置</button>
+                    <button onclick="optimizedFill()">🎲 智能填充</button>
+                </h3>
+                <div class="grid-container" id="gridContainer" style="grid-template-columns: repeat(12, 30px);"><div class="grid-cell cell-0">0<div class="coord">0,0</div></div><div class="grid-cell cell-0">0<div class="coord">1,0</div></div><div class="grid-cell cell-0">0<div class="coord">2,0</div></div><div class="grid-cell cell-0">0<div class="coord">3,0</div></div><div class="grid-cell cell-0">0<div class="coord">4,0</div></div><div class="grid-cell cell-0">0<div class="coord">5,0</div></div><div class="grid-cell cell-0">0<div class="coord">6,0</div></div><div class="grid-cell cell-0">0<div class="coord">7,0</div></div><div class="grid-cell cell-0">0<div class="coord">8,0</div></div><div class="grid-cell cell-0">0<div class="coord">9,0</div></div><div class="grid-cell cell-0">0<div class="coord">10,0</div></div><div class="grid-cell cell-0">0<div class="coord">11,0</div></div><div class="grid-cell cell-0">0<div class="coord">0,1</div></div><div class="grid-cell cell-0">0<div class="coord">1,1</div></div><div class="grid-cell cell-0">0<div class="coord">2,1</div></div><div class="grid-cell cell-0">0<div class="coord">3,1</div></div><div class="grid-cell cell-0">0<div class="coord">4,1</div></div><div class="grid-cell cell-0">0<div class="coord">5,1</div></div><div class="grid-cell cell-0">0<div class="coord">6,1</div></div><div class="grid-cell cell-0">0<div class="coord">7,1</div></div><div class="grid-cell cell-0">0<div class="coord">8,1</div></div><div class="grid-cell cell-0">0<div class="coord">9,1</div></div><div class="grid-cell cell-0">0<div class="coord">10,1</div></div><div class="grid-cell cell-0">0<div class="coord">11,1</div></div><div class="grid-cell cell-0">0<div class="coord">0,2</div></div><div class="grid-cell cell-0">0<div class="coord">1,2</div></div><div class="grid-cell cell-0">0<div class="coord">2,2</div></div><div class="grid-cell cell-0">0<div class="coord">3,2</div></div><div class="grid-cell cell-0">0<div class="coord">4,2</div></div><div class="grid-cell cell-0">0<div class="coord">5,2</div></div><div class="grid-cell cell-0">0<div class="coord">6,2</div></div><div class="grid-cell cell-0">0<div class="coord">7,2</div></div><div class="grid-cell cell-0">0<div class="coord">8,2</div></div><div class="grid-cell cell-0">0<div class="coord">9,2</div></div><div class="grid-cell cell-0">0<div class="coord">10,2</div></div><div class="grid-cell cell-0">0<div class="coord">11,2</div></div><div class="grid-cell cell-0">0<div class="coord">0,3</div></div><div class="grid-cell cell-0">0<div class="coord">1,3</div></div><div class="grid-cell cell-0">0<div class="coord">2,3</div></div><div class="grid-cell cell-0">0<div class="coord">3,3</div></div><div class="grid-cell cell-0">0<div class="coord">4,3</div></div><div class="grid-cell cell-0">0<div class="coord">5,3</div></div><div class="grid-cell cell-0">0<div class="coord">6,3</div></div><div class="grid-cell cell-0">0<div class="coord">7,3</div></div><div class="grid-cell cell-0">0<div class="coord">8,3</div></div><div class="grid-cell cell-0">0<div class="coord">9,3</div></div><div class="grid-cell cell-0">0<div class="coord">10,3</div></div><div class="grid-cell cell-0">0<div class="coord">11,3</div></div><div class="grid-cell cell-0">0<div class="coord">0,4</div></div><div class="grid-cell cell-0">0<div class="coord">1,4</div></div><div class="grid-cell cell-0">0<div class="coord">2,4</div></div><div class="grid-cell cell-0">0<div class="coord">3,4</div></div><div class="grid-cell cell-0">0<div class="coord">4,4</div></div><div class="grid-cell cell-0">0<div class="coord">5,4</div></div><div class="grid-cell cell-0">0<div class="coord">6,4</div></div><div class="grid-cell cell-0">0<div class="coord">7,4</div></div><div class="grid-cell cell-0">0<div class="coord">8,4</div></div><div class="grid-cell cell-0">0<div class="coord">9,4</div></div><div class="grid-cell cell-0">0<div class="coord">10,4</div></div><div class="grid-cell cell-0">0<div class="coord">11,4</div></div><div class="grid-cell cell-0">0<div class="coord">0,5</div></div><div class="grid-cell cell-0">0<div class="coord">1,5</div></div><div class="grid-cell cell-0">0<div class="coord">2,5</div></div><div class="grid-cell cell-0">0<div class="coord">3,5</div></div><div class="grid-cell cell-0">0<div class="coord">4,5</div></div><div class="grid-cell cell-0">0<div class="coord">5,5</div></div><div class="grid-cell cell-0">0<div class="coord">6,5</div></div><div class="grid-cell cell-0">0<div class="coord">7,5</div></div><div class="grid-cell cell-0">0<div class="coord">8,5</div></div><div class="grid-cell cell-0">0<div class="coord">9,5</div></div><div class="grid-cell cell-0">0<div class="coord">10,5</div></div><div class="grid-cell cell-0">0<div class="coord">11,5</div></div><div class="grid-cell cell-0">0<div class="coord">0,6</div></div><div class="grid-cell cell-0">0<div class="coord">1,6</div></div><div class="grid-cell cell-0">0<div class="coord">2,6</div></div><div class="grid-cell cell-0">0<div class="coord">3,6</div></div><div class="grid-cell cell-0">0<div class="coord">4,6</div></div><div class="grid-cell cell-0">0<div class="coord">5,6</div></div><div class="grid-cell cell-0">0<div class="coord">6,6</div></div><div class="grid-cell cell-0">0<div class="coord">7,6</div></div><div class="grid-cell cell-0">0<div class="coord">8,6</div></div><div class="grid-cell cell-0">0<div class="coord">9,6</div></div><div class="grid-cell cell-0">0<div class="coord">10,6</div></div><div class="grid-cell cell-0">0<div class="coord">11,6</div></div><div class="grid-cell cell-0">0<div class="coord">0,7</div></div><div class="grid-cell cell-0">0<div class="coord">1,7</div></div><div class="grid-cell cell-0">0<div class="coord">2,7</div></div><div class="grid-cell cell-0">0<div class="coord">3,7</div></div><div class="grid-cell cell-0">0<div class="coord">4,7</div></div><div class="grid-cell cell-0">0<div class="coord">5,7</div></div><div class="grid-cell cell-0">0<div class="coord">6,7</div></div><div class="grid-cell cell-0">0<div class="coord">7,7</div></div><div class="grid-cell cell-0">0<div class="coord">8,7</div></div><div class="grid-cell cell-0">0<div class="coord">9,7</div></div><div class="grid-cell cell-0">0<div class="coord">10,7</div></div><div class="grid-cell cell-0">0<div class="coord">11,7</div></div></div>
+                <div id="diamondCounter" class="counter">
+                    <span id="diamondWarning" style="display:none;"></span>
+                </div>
+                <div id="obstacleCounter" class="counter"></div>
+                <div id="gridError" class="counter over" style="display:none; background:#FFF3E0; color:#EF6C00;"></div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <button onclick="generateExcelConfig()">💾 生成配置</button>
+            <button onclick="copyConfig()">📋 复制数据</button>
+        </div>
+        <div id="excelOutput"></div>
+    </div>
+
+<script>
+    
+// 配置参数
+let currentGrid = [];
+let DIAMOND_TYPES = [11, 12, 13];
+const MAX_OBSTACLES = 50;
+const MAX_WIDTH = 24;
+const MAX_HEIGHT = 16;
+let currentObstacles = 0;
+let maxObstacles = 0;
+let diamondTarget = 5;
+
+// 初始化函数
+function init() {
+    const params = new URLSearchParams(window.location.search);
+    
+    // 设置基础参数
+    setSelectValue('blockType', params.get('blockType') || '12');
+    setSelectValue('levelHeight', params.get('levelHeight') || '8');
+    setSelectValue('winType', params.get('winType') || '1');
+    
+    // 处理颜色参数
+    if(params.get('winType') === '2') {
+        document.getElementById('diamondSetting').style.display = 'block';
+        document.getElementById('diamondCountGroup').style.display = 'block';
+        DIAMOND_TYPES = [
+            clampValue(parseInt(params.get('color1')), 11, 17, 11),
+            clampValue(parseInt(params.get('color2')), 11, 17, 12),
+            clampValue(parseInt(params.get('color3')), 11, 17, 13)
+        ];
+        document.getElementById('color1').value = DIAMOND_TYPES[0];
+        document.getElementById('color2').value = DIAMOND_TYPES[1];
+        document.getElementById('color3').value = DIAMOND_TYPES[2];
+    }
+    
+    initGrid();
+    addEventListeners();
+    updateCounters();
+    document.getElementById('obstacleCounter').style.display = 'block';
+}
+
+// 辅助函数：设置下拉框值
+function setSelectValue(id, value) {
+    const select = document.getElementById(id);
+    if(select) select.value = value;
+}
+
+// 辅助函数：数值范围限制
+function clampValue(value, min, max, defaultValue) {
+    const num = Number.parseInt(value);
+    if (isNaN(num)) return defaultValue;
+    return Math.max(min, Math.min(max, num));
+}
+// 添加事件监听
+function addEventListeners() {
+    document.getElementById('winType').addEventListener('change', function() {
+        document.getElementById('diamondSetting').style.display = 
+            this.value === '2' ? 'block' : 'none';
+    document.getElementById('diamondCountGroup').style.display = 
+            this.value === '2' ? 'block' : 'none';
+    });
+    
+    ['blockType', 'levelHeight'].forEach(id => {
+        document.getElementById(id).addEventListener('change', () => {
+            initGrid();
+            updateCounters();
+        });
+    });
+    
+    document.getElementById('maxObstacles').addEventListener('input', function(e) {
+        const rawValue = parseInt(e.target.value) || 0;
+        maxObstacles = clampValue(rawValue, 0, 50, 0);  // 允许0-50
+        this.value = maxObstacles;  // 显示修正后的值
+        scheduleRender();
+    })
+    
+    document.getElementById('diamondCount').addEventListener('input', e => {
+        diamondTarget = clampValue(e.target.value, 1, 50, 5);
+        e.target.value = diamondTarget;
+    });
+}
+
+
+// 修改2：增强颜色更新函数
+function updateDiamondTypes() {
+    DIAMOND_TYPES = [
+        parseInt(document.getElementById('color1').value) || 11,
+        parseInt(document.getElementById('color2').value) || 12,
+        parseInt(document.getElementById('color3').value) || 13
+    ].filter(v => v >= 11 && v <= 17).slice(0, 3); // 确保最多3种颜色
+}
+
+document.getElementById('diamondCount').addEventListener('input', function() {
+    diamondTarget = Math.min(Math.max(parseInt(this.value) || 5, 1), 50);
+    this.value = diamondTarget;
+    scheduleRender();
+});
+
+// 初始化网格
+function initGrid() {
+    const width = parseInt(document.getElementById('blockType').value);
+    const height = parseInt(document.getElementById('levelHeight').value);
+    
+    currentGrid = Array.from({length: height}, () => 
+        new Array(width).fill(0)
+    );
+    
+    renderGrid();
+    updateDiamondTypes()
+}
+
+// 智能填充核心逻辑
+function optimizedFill() {
+    updateDiamondTypes(); // 新增代码
+    const width = currentGrid[0].length;
+    const height = currentGrid.length;
+    const newGrid = Array.from({length: height}, () => new Uint8Array(width));
+
+    // 生成基础方块
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            newGrid[y][x] = Math.random() < 0.6 && canPlaceBlock(x, y) ? 1 : 0;
+        }
+    }
+
+    // 放置障碍物
+    let obstaclesAdded = 0;
+    const obstacleCandidates = [];
+    
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            if (newGrid[y][x] === 1 && hasAdjacentBlocks(x, y, newGrid)) {
+                obstacleCandidates.push({x, y});
+            }
+        }
+    }
+    
+    while (obstaclesAdded < maxObstacles && obstacleCandidates.length > 0) {
+        const index = Math.floor(Math.random() * obstacleCandidates.length);
+        const {x, y} = obstacleCandidates.splice(index, 1)[0];
+        newGrid[y][x] = 2;
+        obstaclesAdded++;
+    }
+
+    // 放置钻石
+    if (isCollectMode()) {
+        let diamondsPlaced = 0; // 正确声明的变量
+        const safeSpots = [];
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (newGrid[y][x] === 0 && isDiamondSafe(x, y, newGrid)) {
+                    safeSpots.push({x, y});
+                }
+            }
+        }
+        
+        
+        for (let i = safeSpots.length - 1; i >= 0 && diamondsPlaced < diamondTarget; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [safeSpots[i], safeSpots[j]] = [safeSpots[j], safeSpots[i]];
+            const {x, y} = safeSpots[i];
+            newGrid[y][x] = DIAMOND_TYPES[Math.floor(Math.random() * DIAMOND_TYPES.length)];
+            diamondsPlaced++;  // 这里也要修改
+            safeSpots.pop();
+        }
+    }
+
+    currentGrid = newGrid;
+    currentObstacles = obstaclesAdded;
+    scheduleRender();
+    updateCounters(); 
+}
+
+// 辅助函数
+function canPlaceBlock(x, y) {
+    return !(
+        (x >= 2 && currentGrid[y][x-1] === 1 && currentGrid[y][x-2] === 1) ||
+        (y >= 2 && currentGrid[y-1][x] === 1 && currentGrid[y-2][x] === 1)
+    );
+}
+
+function hasAdjacentBlocks(x, y, grid) {
+    const directions = [[-1,0], [1,0], [0,-1], [0,1]];
+    return directions.some(([dx, dy]) => 
+        x + dx >= 0 && x + dx < grid[0].length &&
+        y + dy >= 0 && y + dy < grid.length &&
+        grid[y + dy][x + dx] === 1
+    );
+}
+
+function isDiamondSafe(x, y, grid) {
+    for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx >= 0 && nx < grid[0].length && 
+                ny >= 0 && ny < grid.length &&
+                grid[ny][nx] === 1) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+// 渲染系统
+let renderDebounce;
+function scheduleRender() {
+    clearTimeout(renderDebounce);
+    renderDebounce = setTimeout(renderGrid, 100);
+}
+
+function renderGrid() {
+    const container = document.getElementById('gridContainer');
+    const width = currentGrid[0]?.length || 12;
+    container.style.gridTemplateColumns = `repeat(${width}, 30px)`;
+    container.innerHTML = '';
+    
+    currentGrid.forEach((row, y) => {
+        row.forEach((cell, x) => {
+            const div = document.createElement('div');
+            div.className = `grid-cell cell-${cell}`;
+            div.innerHTML = `${cell}<div class="coord">${x},${y}</div>`;
+            div.onclick = () => handleCellClick(x, y);
+            container.appendChild(div);
+        });
+    });
+}
+// 交互功能
+function handleCellClick(x, y) {
+    const prevValue = currentGrid[y][x];
+    const types = isCollectMode() ? [0, 1, 2, ...DIAMOND_TYPES] : [0, 1, 2];
+    const newValue = types[(types.indexOf(prevValue) + 1) % types.length];
+    
+    // 更新障碍物计数
+    if (prevValue === 2) currentObstacles--;
+    if (newValue === 2) currentObstacles++;
+    
+    currentGrid[y][x] = newValue;
+    scheduleRender();
+    updateCounters();
+}
+
+// 验证系统
+function validateLayout() {
+    let isValid = true;
+    const width = currentGrid[0].length;
+    const height = currentGrid.length;
+
+    // 验证方块连续性规则
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            if (currentGrid[y][x] === 1) {
+                // 横向连续检查
+                if (x >= 2 && currentGrid[y][x-1] === 1 && currentGrid[y][x-2] === 1) {
+                    isValid = false;
+                    // markErrorCell(x, y);
+                }
+                // 纵向连续检查
+                if (y >= 2 && currentGrid[y-1][x] === 1 && currentGrid[y-2][x] === 1) {
+                    isValid = false;
+                    // markErrorCell(x, y);
+                }
+            }
+        }
+    }
+    return isValid;
+}
+
+function markErrorCell(x, y) {
+    const container = document.getElementById('gridContainer');
+    const cellIndex = y * currentGrid[0].length + x;
+    const cell = container.children[cellIndex];
+    
+    if (!cell.querySelector('.error-marker')) {
+        const marker = document.createElement('div');
+        marker.className = 'error-marker';
+        cell.appendChild(marker);
+        
+        // 3秒后自动移除标记
+        setTimeout(() => {
+            if (cell.contains(marker)) {
+                cell.removeChild(marker);
+            }
+        }, 3000);
+    }
+}
+
+// 配置生成
+function generateExcelConfig() {
+    const width = parseInt(document.getElementById('blockType').value);
+    const layers = currentGrid.map(layer => 
+        [...layer.slice(0, width), ...new Array(24 - width).fill(0)]
+    );
+    
+    const tableHTML = `
+    <table class="config-table">
+        <tr>${['配置', ...Array.from({length:24}, (_,i)=>i+1)].map(h => `<th>${h}</th>`).join('')}</tr>
+        ${layers.map((layer, i) => `
+            <tr>
+                <td>${i+1}</td>
+                ${layer.map(cell => `<td>${cell}</td>`).join('')}
+            </tr>
+        `).join('')}
+    </table>`;
+    
+    document.getElementById('excelOutput').innerHTML = tableHTML;
+}
+
+// 工具函数
+function isCollectMode() {
+    return document.getElementById('winType').value === '2';
+}
+
+function updateCounters() {
+    // 统计实际障碍物数量
+    const actualObstacles = currentGrid.flat().reduce((acc, row) => acc + row.filter(c => c === 2).length, 0);
+    const diamondWarning = document.getElementById('diamondWarning');
+    // 统计实际钻石数量
+    let diamonds = 0;
+    if (isCollectMode()) {
+        diamonds = currentGrid.flat().reduce((acc, row) => 
+            acc + row.filter(c => DIAMOND_TYPES.includes(c)).length, 0);
+    }
+
+    // 更新障碍物计数器
+    const obstacleElement = document.getElementById('obstacleCounter');
+    obstacleElement.innerHTML = `障碍物：${actualObstacles}/${maxObstacles}`;
+    obstacleElement.className = `counter ${actualObstacles > maxObstacles ? 'over' : 'ok'}`;
+
+    // 更新钻石计数器
+    const diamondElement = document.getElementById('diamondCounter');
+    if (isCollectMode()) {
+        diamondElement.innerHTML = `钻石：${diamonds}/${diamondTarget}`;
+        diamondElement.className = `counter ${diamonds !== diamondTarget ? 'over' : 'ok'}`;
+        diamondElement.style.display = 'block';
+    } else {
+        diamondElement.style.display = 'none';
+    }
+    
+     // 新增行列校验
+    const errors = checkGridErrors();
+    const errorDisplay = document.getElementById('gridError');
+    
+    if (errors.length > 0) {
+        errorDisplay.style.display = 'block';
+        errorDisplay.innerHTML = `
+            <div>⚠️ 配置错误：</div>
+            ${errors.map(e => `<div>${e}</div>`).join('')}
+        `;
+    } else {
+        errorDisplay.style.display = 'none';
+    }
+}
+
+// 新增校验函数
+function checkGridErrors() {
+    const errors = [];
+    
+    // 检查行
+    currentGrid.forEach((row, y) => {
+        if (row.every(cell => cell >= 1)) {
+            errors.push(`第${y+1}行不能全部是方块,会自动消除`);
+        }
+    });
+
+    // 检查列
+    const colCount = currentGrid[0]?.length || 0;
+    for (let x = 0; x < colCount; x++) {
+        if (currentGrid.every(row => row[x] >= 1)) {
+            errors.push(`第${x+1}列不能全部是方块,会自动消除`);
+        }
+    }
+
+    return errors;
+}
+
+
+function copyConfig() {
+    const blockType = parseInt(document.getElementById('blockType').value);
+    
+    // 生成Excel兼容数据
+    const excelData = currentGrid.map((layer, index) => {
+        const validData = Array.from(layer).slice(0, blockType);
+        const padding = Array(24 - blockType).fill(0);
+        return [index + 1, ...validData, ...padding];
+    });
+    
+    // 转换为制表符分隔文本
+    const tsvContent = excelData.map(row => 
+        row.join('\t')
+    ).join('\n');
+
+    // 复制到剪贴板
+    const textarea = document.createElement('textarea');
+    textarea.value = tsvContent;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = 0;
+    document.body.appendChild(textarea);
+    
+    try {
+        // 传统复制方法
+        textarea.select();
+        textarea.setSelectionRange(0, 99999); // 兼容移动端
+        
+        if (document.execCommand('copy')) {
+            alert('✅ 数据已复制！可直接粘贴到Excel');
+        } else {
+            // 降级到手动选择
+            handleManualCopy(textarea);
+        }
+    } catch (err) {
+        handleManualCopy(textarea);
+    } finally {
+        document.body.removeChild(textarea);
+    }
+    function handleManualCopy(element) {
+        element.style.opacity = 1;
+        element.style.position = 'fixed';
+        element.style.top = '50%';
+        element.style.left = '50%';
+        element.style.transform = 'translate(-50%, -50%)';
+        element.style.zIndex = 9999;
+        element.style.background = 'white';
+        element.style.padding = '20px';
+        element.style.border = '2px solid #2F27CE';
+        
+        const confirmCopy = confirm('请按Ctrl+C复制内容后关闭此窗口');
+        if (confirmCopy) {
+            element.select();
+        
+            }
+        }
+ }
+
+// 新增的blockType和levelHeight监听
+document.getElementById('blockType').addEventListener('change', () => {
+    initGrid();
+    scheduleRender();
+});
+
+document.getElementById('levelHeight').addEventListener('change', () => {
+    initGrid();
+    scheduleRender();
+});
+
+document.querySelectorAll('.diamond-colors input').forEach(input => {
+    input.addEventListener('change', function() {
+        let value = parseInt(this.value) || 11;
+        value = Math.min(Math.max(value, 11), 17);
+        this.value = value;
+        updateDiamondTypes();
+        scheduleRender();
+    });
+});
+document.getElementById('winType').dispatchEvent(new Event('change'));
+initGrid();
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body></html>

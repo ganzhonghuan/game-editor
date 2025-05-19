@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<!-- saved from url=(0047)http://101.132.252.127/config/3_modelgroup.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D模型编组配置系统</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-blue: #2196F3;
+            --selected-color: #4CAF50;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 1rem;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .group-section {
+            background: white;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .group-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+        .group-tab {
+            padding: 8px 16px;
+            border: 2px solid var(--primary-blue);
+            border-radius: 20px;
+            cursor: pointer;
+            background: white;
+        }
+        .group-tab.active {
+            background: var(--primary-blue);
+            color: white;
+        }
+        .model-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 1rem;
+        }
+        .model-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        .model-card.selected {
+            border-color: var(--selected-color);
+            background: #E8F5E9;
+        }
+        .model-preview {
+            width: 100%;
+            height: 100px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        .file-ops {
+            margin: 1rem 0;
+        }
+        button {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* 新增样式 */
+        .group-header {
+            display: flex;
+            align-items: center; /* 垂直居中 */
+            margin-bottom: 15px;
+        }
+
+        .group-title {
+            font-size: 20px;  /* 调大字号 */
+            font-weight: 600;
+            margin: 0;
+            line-height: 38px; /* 保持与按钮高度一致 */
+        }
+
+        .add-group-btn {
+            background: #9C27B0;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            height: 38px; /* 固定高度 */
+            margin-left: 15px; /* 增加间距 */
+            transition: background 0.3s;
+        }
+
+        .add-group-btn:hover {
+            background: #7B1FA2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>模型编组配置系统</h1>
+        
+        <div class="file-ops">
+            <input type="file" id="fileInput" accept=".xlsx">
+            <button onclick="loadFile()">加载配置文件</button>
+        </div>
+
+        <div class="group-section">
+            <div class="group-header">
+                <h2 class="group-title">当前编组配置</h2>
+                <button class="add-group-btn" onclick="createNewGroup()">
+                    + 添加新组
+                </button>
+            </div>
+            <div class="group-selector" id="groupList"></div>
+            <div id="currentConfig"></div>
+        </div>
+
+        <h3>模型列表（点击选择/取消）</h3>
+        <div class="model-list" id="modelPreview"></div>
+    </div>
+
+<script>
+let models = [];
+let modelGroups = [];
+let currentGroup = null;
+
+window.createNewGroup = function() {
+    // 生成新组ID（例如从A-Z顺序）
+    const lastGroup = modelGroups[modelGroups.length - 1];
+    let newId = 'A';
+    
+    if (lastGroup) {
+        const lastCharCode = lastGroup.groupId.charCodeAt(0);
+        if (lastCharCode < 90) { // 不超过Z
+            newId = String.fromCharCode(lastCharCode + 1);
+        } else {
+            alert('已达到最大编组数量（Z）');
+            return;
+        }
+    }
+
+    // 检查是否已存在
+    if (modelGroups.some(g => g.groupId === newId)) {
+        alert(`编组 ${newId} 已存在！`);
+        return;
+    }
+
+    // 创建新组
+    const newGroup = {
+        groupId: newId,
+        members: [],
+        selectedMembers: new Set()
+    };
+    
+    modelGroups.push(newGroup);
+    selectGroup(newId);
+    renderInterface();
+}
+function selectGroup(groupId) {
+    currentGroup = modelGroups.find(g => g.groupId === groupId);
+    // 初始化选中成员
+    if (!currentGroup.selectedMembers) {
+        currentGroup.selectedMembers = new Set(currentGroup.members);
+    }
+    renderInterface();
+}
+
+
+function loadFile() {
+    const file = document.getElementById('fileInput').files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        // 解析ModelManage表（从第4行开始）
+        const manageSheet = workbook.Sheets['ModelManage'];
+        const manageData = XLSX.utils.sheet_to_json(manageSheet, { 
+            header: 1, 
+            range: 3 // 跳过前3行
+        });
+        
+        models = manageData.map(row => ({
+            id: row[0] || 0,
+            number: row[1] || 0,
+            cubeNum: row[2] || 0,
+            data: parseModelData(row[3]),
+            raw: row[3] || ""
+        }));
+
+        // 解析ModelGroup表（从第4行开始）
+        const groupSheet = workbook.Sheets['ModelGroup'];
+        const groupData = XLSX.utils.sheet_to_json(groupSheet, { 
+            header: 1,
+            range: 3 // 跳过前3行
+        });
+        
+        modelGroups = groupData.map(row => ({
+            groupId: (row[0] || "").replace(/"/g, ''),
+            members: parseGroupMembers(row[1])
+        }));
+
+        initGroups();
+        renderInterface();
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function parseModelData(str) {
+    try {
+        const input = (str || "").replace(/^"|"$/g, '').trim();
+        const rows = input.split('|').slice(0,5);
+        return Array(5).fill().map((_, y) => 
+            Array(5).fill().map((_, x) => {
+                const row = rows[y] || "";
+                return parseInt(row.split('#')[x] || 0) ? 1 : 0;
+            })
+        );
+    } catch (e) {
+        console.error("数据解析失败:", e);
+        return Array(5).fill().fill(0);
+    }
+}
+
+function parseGroupMembers(str) {
+    return (str || "")
+        .replace(/"/g, '')
+        .split('-')
+        .filter(x => x)
+        .map(Number);
+}
+
+function initGroups() {
+    modelGroups.forEach(group => {
+        // 保留原始成员数据副本
+        if (!group.originalMembers) {
+            group.originalMembers = [...group.members]; 
+        }
+        
+        // 初始化选中成员
+        if (!group.selectedMembers) {
+            group.selectedMembers = new Set(group.members);
+        }
+    });
+}
+
+function renderInterface() {
+    renderGroupTabs();
+    renderModelPreview();
+    updateConfigDisplay();
+}
+
+function renderGroupTabs() {
+    const container = document.getElementById('groupList');
+    container.innerHTML = modelGroups.map(group => `
+        <div class="group-tab ${currentGroup?.groupId === group.groupId ? 'active' : ''}" 
+             onclick="selectGroup('${group.groupId}')">
+            ${group.groupId}
+        </div>
+    `).join('');
+}
+
+
+function renderModelPreview() {
+    const container = document.getElementById('modelPreview');
+    container.innerHTML = models.map(model => {
+        const isSelected = currentGroup?.selectedMembers.has(model.number);
+        return `
+        <div class="model-card ${isSelected ? 'selected' : ''}" 
+             onclick="toggleSelection(${model.number})">
+            <div class="model-preview">
+                ${renderMiniGrid(model.data)}
+            </div>
+            <div style="margin:4px 0;font-weight:bold;">编号: ${model.number}</div>
+                   </div>
+        `;
+    }).join('');
+}
+
+
+function renderMiniGrid(data) {
+    return `
+    <div style="display:grid;grid-template-columns:repeat(5, 16px);gap:1px;">
+        ${data.flatMap(row => 
+            row.map(cell => `
+                <div style="width:16px;height:16px;background:${cell ? '#2196F3' : '#eee'}"></div>
+            `)
+        ).join('')}
+    </div>`;
+}
+
+window.toggleSelection = function(cubeNum) {
+    if (!currentGroup) {
+        console.error('未选择编组');
+        return;
+    }
+    
+    // 确保参数是数字类型
+    cubeNum = Number(cubeNum);
+    
+    if (currentGroup.selectedMembers.has(cubeNum)) {
+        currentGroup.selectedMembers.delete(cubeNum);
+    } else {
+        currentGroup.selectedMembers.add(cubeNum);
+    }
+    
+    // 同步更新原始数据
+    currentGroup.members = Array.from(currentGroup.selectedMembers).sort((a, b) => a - b);
+    
+    // 更新界面
+    updateConfigDisplay();
+    renderModelPreview();
+}
+
+function updateConfigDisplay() {
+    const container = document.getElementById('currentConfig');
+    if (!currentGroup) {
+        container.innerHTML = "请先选择编组";
+        return;
+    }
+    
+    const members = Array.from(currentGroup.selectedMembers).join('-');
+    container.innerHTML = `
+        <div style="margin-bottom:1rem;">
+            <h4>当前编组 ${currentGroup.groupId} 配置：</h4>
+            <div style="display:flex;gap:10px;margin-top:8px;">
+                <button onclick="copyGroupData()" style="background:#4CAF50;">
+                    复制配置
+                </button>
+            </div>
+        </div>
+        <div style="padding:10px;background:#f0f0f0;border-radius:4px;margin:10px 0;">
+            "${currentGroup.groupId}"\t"-${members}-"
+        </div>
+        <p>包含模型数量：${currentGroup.selectedMembers.size}</p>
+    `;
+}
+
+
+
+// 新增复制函数
+window.copyGroupData = function() {
+    if (!currentGroup) {
+        alert('请先选择编组');
+        return;
+    }
+    
+    const members = Array.from(currentGroup.selectedMembers).join('-');
+    const data = `"""${currentGroup.groupId}"""\t"""-${members}-"""`;
+    
+    // 现代浏览器复制方式
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(data)
+            .then(() => alert('复制成功！'))
+            .catch(() => legacyCopy(data));
+    } else {
+        legacyCopy(data);
+    }
+}
+
+// 兼容旧浏览器的复制方式
+function legacyCopy(text) {
+    const textarea = document.createElement( 'textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    alert('已复制到剪贴板：\n' + text);
+}
+</script>
+
+</body></html>

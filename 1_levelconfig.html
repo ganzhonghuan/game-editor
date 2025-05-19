@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<!-- saved from url=(0048)http://101.132.252.127/config/1_levelconfig.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <title>游戏关卡配置生成器</title>
+    <style>
+        .container { max-width: 1000px; margin: 20px auto; padding: 20px; }
+        .form-group { margin-bottom: 15px; display: flex; align-items: center; }
+        label { display: inline-block; width: 150px; margin-right: 10px; }
+        input, select { flex: 1; padding: 6px; max-width: 300px; }
+        .error { color: red; display: none; font-size: 12px; }
+        #outputTable { margin-top: 20px; border-collapse: collapse; width: 100%; }
+        #outputTable th, #outputTable td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .color-preview { width: 25px; height: 25px; border: 1px solid #ccc; display: inline-block; vertical-align: middle; }
+        .copy-btn { 
+            margin: 15px 5px 0 0;
+            padding: 10px 20px;
+            background: #2F27CE;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+         
+        }
+        .reset-btn {
+            background: #dc3545 !important;
+            margin-left: 10px; 
+       }
+        .array-input { display: flex; gap: 5px; }
+        .array-input input { width: 80px; }
+        /* Tooltip 样式 */
+        .tooltip {
+            pointer-events: auto; /* 允许交互 */
+            display: none;    
+            position: absolute;
+            background: white;
+            border: 1px solid #2196F3;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            max-width: 600px;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+        }
+        #previewBtn {
+            position: relative; /* 创建定位上下文 */
+        }
+
+        .tooltip.right-side {
+            left: calc(100% + 10px);
+            top: 50%;
+            transform: translateY(-50%);
+            margin-top: 0;
+        }
+
+        .tooltip-grid-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .tooltip-model-card {
+            border: 1px solid #2196F3;
+            border-radius: 4px;
+            padding: 8px;
+            background: #f8fbff;
+        }
+
+        .tooltip-model-id {
+            text-align: center;
+            margin: 4px 0;
+            font-size: 12px;
+            color: #2196F3;
+        }
+
+        /* 复用主界面的网格样式 */
+        .tooltip-mini-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 16px);
+            gap: 1px;
+        }
+
+        .tooltip-grid-cell {
+            width: 16px;
+            height: 16px;
+            background: #eee;
+            transition: all 0.3s ease;
+                opacity: 0;
+                transform: scale(0.8);
+        }
+
+        .tooltip-grid-cell.active {
+            opacity: 1;
+            transform: scale(1);
+            background: #2196F3;
+        }
+
+        .tooltip-error {
+                padding: 10px;
+                color: #dc3545;
+                font-size: 14px;
+            }
+
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>游戏关卡配置生成器</h2>
+        
+
+        <div class="form-group">
+            <label>关卡名称：</label>
+            <input type="text" id="LevelName" placeholder="31">
+        </div>
+
+        <!-- 核心配置 -->
+        <div class="form-group">
+            <label>块数类型：</label>
+            <select id="blockType">
+                <option value="12">12</option>
+                <option value="18">18</option>
+                <option value="24">24</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>层高：</label>
+            <select id="levelHeight">
+                <option value="8">8</option>
+                <option value="12">12</option>
+            </select>
+        </div>
+
+        <!-- 模型配置 -->
+        <div class="form-group">
+            <label>刷新模型：</label>
+            <select id="refreshModel"></select>
+            <input type="file" id="modelGroupFile" accept=".xlsx" style="display:none;">
+            <button onclick="document.getElementById(&#39;modelGroupFile&#39;).click()">加载模型组</button>
+            <button id="previewBtn">查看模型</button>
+            <div id="modelTooltip" class="tooltip" style="display: none;"></div>
+        </div>
+
+
+        <!-- 胜利条件 -->
+        <div class="form-group">
+            <label>胜利条件：</label>
+            <select id="winType" onchange="toggleCondition()">
+                <option value="1">积分通关</option>
+                <option value="2">收集通关</option>
+            </select>
+        </div>
+
+        <!-- 分数条件 -->
+        <div id="scoreCondition">
+            <div class="form-group">
+                <label>星级分数阈值：</label>
+                <div class="array-input">
+                    <input type="number" id="star1" placeholder="1星" value="160">
+                    <input type="number" id="star2" placeholder="2星" value="180">
+                    <input type="number" id="star3" placeholder="3星" value="240">
+                </div>
+            </div>
+        </div>
+
+        <!-- 收集条件 -->
+        <div id="diamondCondition" style="display:none;">
+            <div class="form-group">
+                <label>钻石数量：</label>
+                <div class="array-input">
+                    <input type="number" id="diamond1" placeholder="钻石1" value="15">
+                    <input type="number" id="diamond2" placeholder="钻石2" value="15">
+                    <input type="number" id="diamond3" placeholder="钻石3" value="12">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>颜色代码：</label>
+                <div class="array-input">
+                    <input type="number" id="color1" placeholder="颜色1" min="11" max="17" value="11">
+                    <input type="number" id="color2" placeholder="颜色2" min="11" max="17" value="12">
+                    <input type="number" id="color3" placeholder="颜色3" min="11" max="17" value="13">
+                </div>
+                <div style="font-size:12px; color:#666;">
+                    11=绿 12=蓝光 13=蓝 14=白 15=紫 16=黄 17=红
+                </div>
+            </div>
+        </div>
+
+        <!-- 方块配置 -->
+        <div class="form-group">
+            <label>初始方块：</label>
+            <div class="array-input">
+                <input type="number" id="block1" value="1" min="1">
+                <input type="number" id="block2" value="3" min="1">
+                <input type="number" id="block3" value="3" min="1">
+            </div>
+            <span class="error" id="blockError">方块ID必须≥1</span>
+        </div>
+
+        <!-- 颜色选择 -->
+        <div class="form-group">
+            <label>障碍颜色：</label>
+            <input type="color" id="obstacleColor" value="#FFFF67">
+            <div class="color-preview" id="colorPreview" style="background-color: rgb(255, 255, 103);"></div>
+            <span id="colorHex">#FFFF67</span>
+        </div>
+        <!-- 视频配置 -->
+        <div class="form-group">
+            <label>视频名称：</label>
+            <input type="text" id="videoName" placeholder="请输入视频文件名">
+        </div>
+
+        <!-- 操作按钮 -->
+        <button class="copy-btn" onclick="generateConfig()">生成配置</button>
+        <button class="copy-btn" onclick="copyLatestRow()">复制最新行</button>
+        <button class="copy-btn reset-btn" onclick="resetForm()">重置配置</button>
+        <button class="copy-btn" onclick="openGridEditor()">配置关卡格子</button>
+
+        <!-- 配置预览表格 -->
+        <table id="outputTable">
+            <thead>
+                <tr>
+                    <th>id</th>
+                    <th>LevelName</th>
+                    <th>blockType</th>
+                    <th>levelHeight</th>
+                    <th>LevelConfig</th>
+                    <th>refreshModel</th>
+                    <th>winType</th>
+                    <th>WinStar1</th>
+                    <th>diamondStarNum2</th>
+                    <th>diamondStarColor2</th>
+                    <th>InitialRefresh</th>
+                    <th>cubecolor</th>
+                    <th>videoplay</th>
+                </tr>
+            </thead>
+            <tbody id="configBody"></tbody>
+        </table>
+    </div>
+
+<script>
+let latestRow = null;
+let models = []; // 存储所有模型数据
+let modelGroups = []; // 存储分组信息
+let currentTooltipElement = null;
+
+
+// 初始化颜色预览
+document.getElementById('colorPreview').style.backgroundColor = '#FFFF67';
+
+// 颜色选择器事件
+document.getElementById('obstacleColor').addEventListener('input', function(e) {
+    document.getElementById('colorHex').textContent = e.target.value;
+    document.getElementById('colorPreview').style.backgroundColor = e.target.value;
+});
+
+// 切换胜利条件
+function toggleCondition() {
+    const winType = document.getElementById('winType').value;
+    document.getElementById('scoreCondition').style.display = winType === '1' ? 'block' : 'none';
+    document.getElementById('diamondCondition').style.display = winType === '2' ? 'block' : 'none';
+}
+
+function parseGroupMembers(str) {
+    // 处理格式: "1-2-3" 或 "-1-2-3-"
+    return (str || "")
+        .replace(/^["-]+|["-]+$/g, '') // 去除首尾的引号和连字符
+        .split('-')
+        .filter(x => x !== '')
+        .map(Number);
+}
+
+function parseModelData(str) {
+  try {
+    // 步骤1：清洗数据，移除所有双引号和非数据字符
+    const cleanStr = (str || "").toString()
+      .replace(/["\s]/g, '') // 移除双引号和空格
+      .replace(/[^0-9|#]/g, ''); // 只保留数字和分隔符
+    
+    // 步骤2：分割为行
+    const rows = cleanStr.split('|').slice(0,5); // 保证最多5行
+    
+    // 步骤3：处理每行数据
+    const grid = [];
+    for (let row of rows) {
+      const cells = row.split('#')
+        .slice(0,5) // 每行最多5个元素
+        .map(Number)
+        .map(v => v > 0 ? 1 : 0); // 非零值转为1
+      
+      // 填充空白到5列
+      while(cells.length < 5) cells.push(0);
+      grid.push(cells);
+    }
+    
+    // 填充空白行到5行
+    while(grid.length < 5) grid.push(Array(5).fill(0));
+    
+    return grid;
+  } catch (e) {
+    console.error('模型解析失败:', e);
+    return Array(5).fill().map(() => Array(5).fill(0));
+  }
+}
+
+// 文件选择监听
+function updateGroupSelector() {
+  const selector = document.getElementById('refreshModel');
+  if (!selector) return;
+  
+  const options = modelGroups.length 
+    ? modelGroups.map(g => `<option value="${g.groupId}">${g.groupId}型</option>`)
+    : '<option value="">请先加载模型组</option>';
+  
+  selector.innerHTML = options;
+}
+
+
+
+document.getElementById('modelGroupFile').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            // 解析ModelData表
+            const modelSheet = workbook.Sheets['ModelManage'];
+            const modelRows = XLSX.utils.sheet_to_json(modelSheet, { header: 1 });
+            models = modelRows.slice(1).map(row => ({
+            number: row[1], // 编号在第一列
+            data: parseModelData(row[3] || "") // 数据在第三列
+             }));
+
+            // 解析ModelGroup表
+            const groupSheet = workbook.Sheets['ModelGroup'];
+            const groupRows = XLSX.utils.sheet_to_json(groupSheet, { 
+                header: 1,
+                range: 3 // 跳过前3行标题
+            });
+            
+            modelGroups = groupRows
+            .filter(row => row[0] !== undefined) // 过滤空行
+            .map(row => ({
+                groupId: String(row[0]).replace(/"/g, ''), // 强制转为字符串
+                members: parseGroupMembers(row[1]?.toString()) // 处理null值
+            }));
+
+            updateGroupSelector();
+            alert('数据加载成功！');
+
+        } catch (error) {
+            alert('文件解析失败: ' + error.message);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+});
+
+
+// 数据验证
+function validate() {
+    let isValid = true;
+
+
+    // 验证方块ID
+    const blocks = [
+        parseInt(document.getElementById('block1').value),
+        parseInt(document.getElementById('block2').value),
+        parseInt(document.getElementById('block3').value)
+    ];
+    if(blocks.some(b => b < 1 || isNaN(b))) {
+        document.getElementById('blockError').style.display = 'inline';
+        isValid = false;
+    } else {
+        document.getElementById('blockError').style.display = 'none';
+    }
+
+    return isValid;
+}
+
+document.addEventListener('mousemove', (e) => {
+    if (currentTooltipElement) {
+        // 设置偏移量 (跟随鼠标右侧10px)
+        const offsetX = 10;
+        const tooltip = document.getElementById('modelTooltip');
+        tooltip.style.left = `${e.clientX + offsetX}px`;
+        tooltip.style.top = `${e.clientY}px`;
+    }
+});
+
+
+// 给查看模型按钮添加事件
+document.getElementById('previewBtn').addEventListener('click', function() {
+    const groupId = document.getElementById('refreshModel').value;
+    const group = modelGroups.find(g => g.groupId === groupId);
+    if (group) showTooltip(this, group);
+});
+
+document.addEventListener('click', (e) => {
+    const isTooltip = e.target.closest('.tooltip');
+    const isPreviewBtn = e.target.closest('#previewBtn');
+    if (!isTooltip && !isPreviewBtn) {
+        hideTooltip();
+    }
+});
+
+
+
+// 显示 Tooltip
+function showTooltip(target, groupData) {
+    const tooltip = document.getElementById('modelTooltip');
+    const btnRect = target.getBoundingClientRect();
+    const validMembers = groupData.members
+        .map(num => models.find(m => m.number === num))
+        .filter(m => m); // 过滤无效模型
+    // 计算定位
+    tooltip.style.left = `${btnRect.right + window.scrollX + 10}px`;
+    tooltip.style.top = `${btnRect.top + window.scrollY}px`;
+    tooltip.style.transform = 'translateY(-50%)';
+    
+    // 添加定位样式
+    tooltip.classList.add('right-side');
+
+    tooltip.innerHTML = `
+        <div class="tooltip-grid-container">
+            ${validMembers.map(model => `
+                <div class="tooltip-model-card">
+                    <div class="tooltip-model-id">${model.number}</div>
+                    <div class="tooltip-mini-grid">
+                        ${model.data.flat().map(cell => `
+                            <div class="tooltip-grid-cell ${cell ? 'active' : ''}"></div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    // 定位逻辑保持不变
+    tooltip.style.display = 'block';
+}
+
+function hideTooltip() {
+    const tooltip = document.getElementById('modelTooltip');
+    tooltip.classList.remove('right-side');
+    tooltip.style.display = 'none';
+}
+
+
+// 生成配置
+function generateConfig() {
+    if(!validate()) return;
+    const levelNumber = parseInt(document.getElementById('LevelName').value);
+    const config = {
+
+        id: 1000 + levelNumber, // 自动生成ID
+        LevelName: document.getElementById('LevelName').value,
+        blockType: document.getElementById('blockType').value,
+        levelHeight: document.getElementById('levelHeight').value,
+        LevelConfig: "level" + document.getElementById('LevelName').value, // 新增LevelConfig
+        refreshModel: document.getElementById('refreshModel').value,
+        winType: document.getElementById('winType').value,
+        WinStar1: document.getElementById('winType').value === '1' ? [
+            document.getElementById('star1').value,
+            document.getElementById('star2').value,
+            document.getElementById('star3').value
+        ] : [],
+        diamondStarNum2: document.getElementById('winType').value === '2' ? [
+            document.getElementById('diamond1').value,
+            document.getElementById('diamond2').value,
+            document.getElementById('diamond3').value
+        ] : [],
+        diamondStarColor2: document.getElementById('winType').value === '2' ? [
+            document.getElementById('color1').value,
+            document.getElementById('color2').value,
+            document.getElementById('color3').value
+        ] : [],
+        InitialRefresh: [
+            document.getElementById('block1').value,
+            document.getElementById('block2').value,
+            document.getElementById('block3').value
+        ],
+        cubecolor: document.getElementById('obstacleColor').value.slice(1),
+        videoplay: document.getElementById('videoName').value || ""
+    };
+
+    // 创建新行
+    const newRow = document.createElement('tr');
+    newRow.innerHTML = `
+        <td>${config.id}</td>
+        <td>${config.LevelName}</td>
+        <td>${config.blockType}</td>
+        <td>${config.levelHeight}</td>
+        <td>"${config.LevelConfig}"</td>
+        <td>"${config.refreshModel}"</td>
+        <td>${config.winType}</td>
+        <td>[${config.WinStar1.join(',')}]</td>
+        <td>[${config.diamondStarNum2.join(',')}]</td>
+        <td>[${config.diamondStarColor2.join(',')}]</td>
+        <td>[${config.InitialRefresh.join(',')}]</td>
+        <td>"${config.cubecolor}"</td>
+        <td>"${config.videoplay}"</td>
+    `;
+
+    // 添加到表格并更新最新行
+    document.getElementById('configBody').appendChild(newRow);
+    latestRow = newRow;
+}
+
+// 复制最新行（优化Excel兼容性）
+function copyLatestRow() {
+    if (!latestRow) {
+        alert('请先生成配置！');
+        return;
+    }
+
+    // 处理单元格数据
+    
+    const cells = latestRow.getElementsByTagName('td');
+    const rowData = Array.from(cells).map((cell, index) => {
+        const text = cell.textContent;
+        
+        // 按列索引处理特殊字段
+        switch(index) {
+            case 4:  // LevelConfig
+            case 5:  // refreshModel
+            case 11: // cubecolor
+                // 转义双引号为两个双引号，并用双引号包裹整个字段
+                return `"${text.replace(/"/g, '""')}"`;
+                
+            case 7:  // WinStar1
+            case 8:  // diamondStarNum2
+            case 9:  // diamondStarColor2
+            case 10: // InitialRefresh
+            case 11: // cubecolor
+            case 12:
+                return `"${text.replace(/"/g, '""')}"`;
+                
+            default:
+                return text;
+        }
+    });
+
+    // 生成制表符分隔文本
+    const excelText = rowData.join('\t');
+    
+    // 复制到剪贴板
+    //navigator.clipboard.writeText(excelText)
+    //    .then(() => alert('已复制最新配置到剪贴板！'))
+    //    .catch(err => console.error('复制失败:', err));
+    copyToClipboard(excelText); // 统一调用新方法
+
+}
+
+function copyToClipboard(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    document.body.appendChild(textarea);
+    textarea.select();
+
+    try {
+        const success = document.execCommand('copy');
+        if (success) {
+            alert('复制成功！请到Excel中按Ctrl+V粘贴'); 
+        } else {
+            // 备用提示方案
+            promptManualCopy(text);
+        }
+    } catch (err) {
+        promptManualCopy(text);
+    } finally {
+        document.body.removeChild(textarea);
+    }
+}
+
+function promptManualCopy(text) {
+    const msg = `请手动复制以下内容（Ctrl+C）：\n\n${text}`;
+    if (window.confirm(msg)) {
+        textarea.select(); // 重新选中
+    }
+}
+  
+ function resetForm() {
+    // 重置输入表单
+    document.getElementById('LevelName').value = '';
+    document.getElementById('blockType').value = '12';
+    document.getElementById('levelHeight').value = '8';
+    document.getElementById('refreshModel').value = 'A';
+    
+    // 重置胜利条件相关
+    document.getElementById('winType').value = '1';
+    document.getElementById('scoreCondition').style.display = 'block';
+    document.getElementById('diamondCondition').style.display = 'none';
+    
+    // 重置分数条件
+    document.getElementById('star1').value = 160;
+    document.getElementById('star2').value = 180;
+    document.getElementById('star3').value = 240;
+    
+    // 重置收集条件
+    document.getElementById('diamond1').value = 15;
+    document.getElementById('diamond2').value = 15;
+    document.getElementById('diamond3').value = 12;
+    document.getElementById('color1').value = 11;
+    document.getElementById('color2').value = 12;
+    document.getElementById('color3').value = 13;
+    
+    // 重置方块配置
+    document.getElementById('block1').value = 111;
+    document.getElementById('block2').value = 120;
+    document.getElementById('block3').value = 127;
+    
+    // 重置颜色选择
+    document.getElementById('obstacleColor').value = '#FFFF67';
+    document.getElementById('colorHex').textContent = '#FFFF67';
+    document.getElementById('colorPreview').style.backgroundColor = '#FFFF67';
+    
+    // 清空错误提示
+    document.querySelectorAll('.error').forEach(err => err.style.display = 'none');
+    
+    // 清空配置表格
+    document.getElementById('configBody').innerHTML = '';
+    latestRow = null;
+}
+function openGridEditor() {
+    // 收集需要传递的参数
+    const params = new URLSearchParams({
+        blockType: document.getElementById('blockType').value,
+        levelHeight: document.getElementById('levelHeight').value,
+        winType: document.getElementById('winType').value,
+        color1: document.getElementById('color1').value,
+        color2: document.getElementById('color2').value,
+        color3: document.getElementById('color3').value
+    });
+
+    // 如果是积分关卡则不传颜色参数
+    if(document.getElementById('winType').value === '1') {
+        params.delete('color1');
+        params.delete('color2');
+        params.delete('color3');
+    }
+
+    // 打开新窗口并传递参数
+    window.open(`1_1_levelgridconfig.html?${params.toString()}`, '_blank');
+}
+
+</script>
+
+</body></html>

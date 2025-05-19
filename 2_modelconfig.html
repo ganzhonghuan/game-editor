@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<!-- saved from url=(0048)http://101.132.252.127/config/2_modelconfig.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D模型配置管理系统</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-blue: #2196F3;
+            --grid-size: 40px;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 1rem;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        /* 编辑器样式 */
+        #editor {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        .grid-editor {
+            display: grid;
+            grid-template-columns: repeat(5, var(--grid-size));
+            gap: 4px;
+            margin: 1rem 0;
+        }
+        .grid-cell {
+            width: var(--grid-size);
+            height: var(--grid-size);
+            border: 1px solid #ddd;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .grid-cell.active {
+            background: var(--primary-blue);
+            border-color: var(--primary-blue);
+        }
+        /* 模型列表 */
+        .model-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 1.5rem;
+        }
+        .model-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        }
+        .model-id {
+            color: #666;
+            font-size: 0.9em;
+        }
+        /* 表单控件 */
+        .input-group {
+            margin: 1rem 0;
+        }
+        input[type="number"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 120px;
+            margin-right: 1rem;
+        }
+        button {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        /* 文件操作 */
+        .file-ops {
+            margin: 1rem 0;
+        }
+       /* 新增复制按钮样式 */
+    .copy-btn {
+        background: #666;
+        margin-top: 10px;
+        padding: 6px 12px;
+        font-size: 0.8em;
+    }
+    .copy-btn:hover {
+        background: #555;
+    }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>3D模型配置管理系统</h1>
+        
+        <div class="file-ops">
+            <input type="file" id="fileInput" accept=".xlsx">
+            <button onclick="loadFile()">加载配置</button>
+
+        </div>
+
+        <div id="editor">
+            <h2>模型编辑器</h2>
+            <div class="grid-editor" id="gridEditor"><div class="grid-cell" data-y="0" data-x="0"></div><div class="grid-cell" data-y="0" data-x="1"></div><div class="grid-cell" data-y="0" data-x="2"></div><div class="grid-cell" data-y="0" data-x="3"></div><div class="grid-cell" data-y="0" data-x="4"></div><div class="grid-cell" data-y="1" data-x="0"></div><div class="grid-cell" data-y="1" data-x="1"></div><div class="grid-cell" data-y="1" data-x="2"></div><div class="grid-cell" data-y="1" data-x="3"></div><div class="grid-cell" data-y="1" data-x="4"></div><div class="grid-cell" data-y="2" data-x="0"></div><div class="grid-cell" data-y="2" data-x="1"></div><div class="grid-cell" data-y="2" data-x="2"></div><div class="grid-cell" data-y="2" data-x="3"></div><div class="grid-cell" data-y="2" data-x="4"></div><div class="grid-cell" data-y="3" data-x="0"></div><div class="grid-cell" data-y="3" data-x="1"></div><div class="grid-cell" data-y="3" data-x="2"></div><div class="grid-cell" data-y="3" data-x="3"></div><div class="grid-cell" data-y="3" data-x="4"></div><div class="grid-cell" data-y="4" data-x="0"></div><div class="grid-cell" data-y="4" data-x="1"></div><div class="grid-cell" data-y="4" data-x="2"></div><div class="grid-cell" data-y="4" data-x="3"></div><div class="grid-cell" data-y="4" data-x="4"></div></div>
+            
+            <div class="input-group">
+                <div>
+                    <input type="number" id="modelId" placeholder="ID">
+                    <input type="number" id="modelNum" placeholder="编号">
+                </div>
+                <div id="autoFillHint" class="model-id"></div>
+            </div>
+            
+            <button onclick="saveModel()">保存模型</button>
+            <button onclick="clearEditor()" style="background:#666">清空</button>
+        </div>
+
+        <h3>模型列表</h3>
+        <div class="model-list" id="modelList"></div>
+    </div>
+
+<script>
+let models = [];
+let currentData = initializeGrid();
+
+// 初始化5x5网格
+function initializeGrid() {
+    return Array.from({length:5}, () => Array(5).fill(0));
+}
+
+// 初始化编辑器
+function initEditor() {
+    const container = document.getElementById('gridEditor');
+    container.innerHTML = '';
+    
+    for(let y=0; y<5; y++) {
+        for(let x=0; x<5; x++) {
+            const cell = document.createElement('div');
+            cell.className = 'grid-cell';
+            cell.dataset.y = y;
+            cell.dataset.x = x;
+            cell.addEventListener('click', () => toggleCell(y, x));
+            container.appendChild(cell);
+        }
+    }
+}
+
+// 切换单元格状态
+function toggleCell(y, x) {
+    currentData[y][x] = currentData[y][x] ? 0 : 1;
+    updateGridDisplay();
+}
+
+// 更新网格显示
+function updateGridDisplay() {
+    document.querySelectorAll('#gridEditor .grid-cell').forEach(cell => {
+        const y = parseInt(cell.dataset.y);
+        const x = parseInt(cell.dataset.x);
+        cell.classList.toggle('active', currentData[y][x] === 1);
+    });
+}
+
+// 加载Excel文件
+function loadFile() {
+    const file = document.getElementById('fileInput').files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, {type: 'array'});
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        
+        // 跳过前3行标题
+        const rawData = XLSX.utils.sheet_to_json(sheet, {header: 1, range: 3});
+        
+        models = rawData.map(row => ({
+            id: row[0] || 0,
+            number: row[1] || 0,
+            data: parseModelData(row[3]), // 修改后的解析函数
+            raw: row[3] || ""
+        }));
+       
+        renderModelList();
+        updateAutoFill();
+    };
+    reader.readAsArrayBuffer(file);
+
+}
+
+function parseModelData(str) {
+    try {
+        // 去除双引号并清理数据
+        const input = (str || "")
+            .toString()
+            .replace(/^"|"$/g, '') // 去除首尾双引号
+            .trim();
+
+        const rows = input.split('|').slice(0,5);
+        
+        return Array(5).fill().map((_, y) => 
+            Array(5).fill().map((_, x) => {
+                const row = rows[y] || "";
+                // 处理每个单元格数据，支持数字和字符串格式
+                const cellValue = row.split('#')[x] || "0";
+                return parseInt(cellValue.replace(/"/g, '')) ? 1 : 0;
+            })
+        );
+    } catch (e) {
+        console.error("数据解析失败:", e);
+        return initializeGrid();
+    }
+}
+// 渲染模型列表
+function renderModelList() {
+    const container = document.getElementById('modelList');
+    container.innerHTML = '';
+    
+    models.forEach(model => {
+        const card = document.createElement('div');
+        card.className = 'model-card';
+        card.innerHTML = `
+            <div class="model-id">ID: ${model.id} | 编号: ${model.number}</div>
+            ${renderModelGrid(model.data)}
+            <button class="copy-btn" 
+                    data-id="${model.id}"
+                    data-num="${model.number}"
+                    data-model-type="modelA" 
+                    data-model="${model.raw}"
+                    onclick="copyModelData(this)">
+                复制配置
+            </button>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function renderModelGrid(data) {
+    let html = '<div class="grid-editor">';
+    // 强制遍历5x5网格
+    for(let y=0; y<5; y++) {
+        const row = data[y] || [];
+        for(let x=0; x<5; x++) {
+            const val = (row[x] !== undefined) ? row[x] : 0;
+            html += `<div class="grid-cell ${val ? 'active' : ''}"></div>`;
+        }
+    }
+    return html + '</div>';
+}
+
+
+
+// 保存模型
+function saveModel() {
+    const id = parseInt(document.getElementById('modelId').value);
+    const num = parseInt(document.getElementById('modelNum').value);
+    
+    if (isNaN(id)) return alert('请输入有效ID');
+    if (isNaN(num)) return alert('请输入有效编号');
+
+    // 生成紧凑格式数据
+    const rawData = currentData
+        .map(row => {
+            // 去除行末的0
+            let lastIndex = row.length - 1;
+            while(lastIndex >= 0 && row[lastIndex] === 0) lastIndex--;
+            return row.slice(0, lastIndex + 1).join('#');
+        })
+        .filter(row => row !== '') // 过滤空行
+        .join('|');
+
+    const newModel = {
+        id: id,
+        number: num,
+        data: currentData,
+        raw: rawData
+    };
+
+    // 更新模型列表
+    const index = models.findIndex(m => m.id === id);
+    if (index > -1) models.splice(index, 1);
+    models.push(newModel);
+    
+    renderModelList();
+    clearEditor();
+    updateAutoFill();
+}
+
+function updateAutoFill() {
+    const hintElement = document.getElementById('autoFillHint');
+    
+    // 计算下一个可用ID和编号
+    const nextId = models.length > 0 ? Math.max(...models.map(m => m.id)) + 1 : 1;
+    const nextNum = models.length > 0 ? Math.max(...models.map(m => m.number)) + 1 : 1;
+    
+    // 更新提示信息
+    hintElement.innerHTML = `下一个可用 ID: ${nextId} | 下一个编号: ${nextNum}`;
+}
+
+// 清空编辑器
+function clearEditor() {
+    currentData = initializeGrid();
+    document.getElementById('modelId').value = '';
+    document.getElementById('modelNum').value = '';
+    updateGridDisplay();
+    updateAutoFill();
+}
+
+function copyModelData(btn) {
+    const configData = [
+        btn.dataset.id,
+        btn.dataset.num,
+        `"""modelA"""`,
+        `"""${btn.dataset.model}"""` // 直接使用原始紧凑数据
+    ].join('\t');
+
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(configData)
+            .then(() => alert('复制成功'))
+            .catch(() => legacyCopy(configData));
+    } else {
+        legacyCopy(configData);
+    }
+}
+
+// 传统复制方法
+function legacyCopy(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    alert('已复制到剪贴板');
+}
+
+// 初始化
+initEditor();
+document.getElementById('modelId').ondblclick = () => {
+    const nextId = models.length > 0 ? Math.max(...models.map(m => m.id)) + 1 : 1;
+    document.getElementById('modelId').value = nextId;
+};
+document.getElementById('modelNum').ondblclick = () => {
+    const nextNum = models.length > 0 ? Math.max(...models.map(m => m.number)) + 1 : 1;
+    document.getElementById('modelNum').value = nextNum;
+};
+
+</script>
+
+</body></html>
