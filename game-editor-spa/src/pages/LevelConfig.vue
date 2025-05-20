@@ -1,7 +1,7 @@
 <template>
   <div>
     <a-page-header title="游戏关卡配置生成器" />
-    <a-form layout="vertical" :model="form" style="max-width: 800px; margin: 0 auto;">
+    <a-form layout="vertical" :model="form" style="max-width: 1200px; margin: 0 24px;">
       <a-row :gutter="16">
         <a-col :span="12">
           <a-form-item label="关卡名称" required>
@@ -29,10 +29,12 @@
         </a-col>
         <a-col :span="12">
           <a-form-item label="刷新模型">
-            <a-select v-model:value="form.refreshModel" :options="modelGroupOptions" />
-            <input ref="modelGroupFile" type="file" accept=".xlsx" style="display:none" @change="onModelGroupFileChange" />
-            <a-button @click="triggerModelGroupFile" style="margin-right:8px;">加载模型组</a-button>
-            <a-button @click="() => showTooltip = true" style="margin-right:8px;">查看模型</a-button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <a-select v-model:value="form.refreshModel" :options="modelGroupOptions" style="flex: 1;" />
+              <input ref="modelGroupFile" type="file" accept=".xlsx" style="display:none" @change="onModelGroupFileChange" />
+              <a-button @click="triggerModelGroupFile">加载模型组</a-button>
+              <a-button @click="() => showTooltip = true">查看模型</a-button>
+            </div>
             <a-tooltip v-if="showTooltip" :visible="showTooltip" placement="right" @visibleChange="(v: boolean) => showTooltip = v">
               <template #title>
                 <div v-if="currentGroup">
@@ -61,63 +63,86 @@
             </a-select>
           </a-form-item>
         </a-col>
+        <a-col :span="12">
+          <a-form-item label="初始方块">
+            <div style="display: flex; align-items: center;">
+              <a-input-number v-model:value="form.block1" min="1" style="width:100px;" />
+              <a-input-number v-model:value="form.block2" min="1" style="width:100px;margin-left:8px;" />
+              <a-input-number v-model:value="form.block3" min="1" style="width:100px;margin-left:8px;" />
+            </div>
+            <span v-if="blockError" style="color:red;font-size:12px;">方块ID必须≥1</span>
+          </a-form-item>
+        </a-col>
       </a-row>
       <template v-if="form.winType==='1'">
         <a-row :gutter="16">
-          <a-col :span="24">
+          <a-col :span="12">
             <a-form-item label="星级分数阈值">
-              <a-input-number v-model:value="form.star1" placeholder="1星" style="width:100px;" />
-              <a-input-number v-model:value="form.star2" placeholder="2星" style="width:100px;margin-left:8px;" />
-              <a-input-number v-model:value="form.star3" placeholder="3星" style="width:100px;margin-left:8px;" />
+              <div style="display: flex; align-items: center;">
+                <a-input-number v-model:value="form.star1" placeholder="1星" style="width:100px;" />
+                <a-input-number v-model:value="form.star2" placeholder="2星" style="width:100px;margin-left:8px;" />
+                <a-input-number v-model:value="form.star3" placeholder="3星" style="width:100px;margin-left:8px;" />
+              </div>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="障碍颜色">
+              <div style="display: flex; align-items: center;">
+                <a-input type="color" v-model:value="form.obstacleColor" style="width:60px;height:32px;" />
+                <span :style="{display:'inline-block',width:'32px',height:'32px',background:form.obstacleColor,border:'1px solid #ccc',marginLeft:'8px',borderRadius:'2px'}"></span>
+                <span style="margin-left:8px;">{{ form.obstacleColor }}</span>
+              </div>
             </a-form-item>
           </a-col>
         </a-row>
       </template>
       <template v-else>
         <a-row :gutter="16">
-          <a-col :span="24">
+          <a-col :span="12">
             <a-form-item label="钻石数量">
-              <a-input-number v-model:value="form.diamond1" placeholder="钻石1" style="width:100px;" />
-              <a-input-number v-model:value="form.diamond2" placeholder="钻石2" style="width:100px;margin-left:8px;" />
-              <a-input-number v-model:value="form.diamond3" placeholder="钻石3" style="width:100px;margin-left:8px;" />
+              <div style="display: flex; align-items: center;">
+                <a-input-number v-model:value="form.diamond1" placeholder="钻石1" style="width:100px;" />
+                <a-input-number v-model:value="form.diamond2" placeholder="钻石2" style="width:100px;margin-left:8px;" />
+                <a-input-number v-model:value="form.diamond3" placeholder="钻石3" style="width:100px;margin-left:8px;" />
+              </div>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="障碍颜色">
+              <div style="display: flex; align-items: center;">
+                <a-input type="color" v-model:value="form.obstacleColor" style="width:60px;height:32px;" />
+                <span :style="{display:'inline-block',width:'32px',height:'32px',background:form.obstacleColor,border:'1px solid #ccc',marginLeft:'8px',borderRadius:'2px'}"></span>
+                <span style="margin-left:8px;">{{ form.obstacleColor }}</span>
+              </div>
             </a-form-item>
           </a-col>
         </a-row>
         <a-row :gutter="16">
-          <a-col :span="24">
+          <a-col :span="12">
             <a-form-item label="颜色代码">
-              <a-input-number v-model:value="form.color1" min="11" max="17" placeholder="颜色1" style="width:100px;" />
-              <a-input-number v-model:value="form.color2" min="11" max="17" placeholder="颜色2" style="width:100px;margin-left:8px;" />
-              <a-input-number v-model:value="form.color3" min="11" max="17" placeholder="颜色3" style="width:100px;margin-left:8px;" />
+              <div style="display: flex; align-items: center;">
+                <a-input-number v-model:value="form.color1" min="11" max="17" placeholder="颜色1" style="width:100px;" />
+                <a-input-number v-model:value="form.color2" min="11" max="17" placeholder="颜色2" style="width:100px;margin-left:8px;" />
+                <a-input-number v-model:value="form.color3" min="11" max="17" placeholder="颜色3" style="width:100px;margin-left:8px;" />
+              </div>
               <div style="font-size:12px;color:#666;margin-top:4px;">11=绿 12=蓝光 13=蓝 14=白 15=紫 16=黄 17=红</div>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="视频名称">
+              <a-input v-model:value="form.videoName" placeholder="请输入视频文件名" />
             </a-form-item>
           </a-col>
         </a-row>
       </template>
-      <a-row :gutter="16">
-        <a-col :span="24">
-          <a-form-item label="初始方块">
-            <a-input-number v-model:value="form.block1" min="1" style="width:100px;" />
-            <a-input-number v-model:value="form.block2" min="1" style="width:100px;margin-left:8px;" />
-            <a-input-number v-model:value="form.block3" min="1" style="width:100px;margin-left:8px;" />
-            <span v-if="blockError" style="color:red;font-size:12px;margin-left:8px;">方块ID必须≥1</span>
-          </a-form-item>
-        </a-col>
-      </a-row>
-      <a-row :gutter="16">
-        <a-col :span="24">
-          <a-form-item label="障碍颜色">
-            <a-input type="color" v-model:value="form.obstacleColor" style="width:60px;" />
-            <span :style="{display:'inline-block',width:'25px',height:'25px',background:form.obstacleColor,border:'1px solid #ccc',verticalAlign:'middle',marginLeft:'8px'}"></span>
-            <span style="margin-left:8px;">{{ form.obstacleColor }}</span>
-          </a-form-item>
-        </a-col>
-      </a-row>
-      <a-row :gutter="16">
-        <a-col :span="24">
+      <a-row :gutter="16" v-if="form.winType==='1'">
+        <a-col :span="12">
           <a-form-item label="视频名称">
             <a-input v-model:value="form.videoName" placeholder="请输入视频文件名" />
           </a-form-item>
+        </a-col>
+        <a-col :span="12">
+          <!-- 空白列，保持布局一致 -->
         </a-col>
       </a-row>
       <a-row :gutter="16" style="margin-top:16px;">
@@ -129,12 +154,21 @@
         </a-col>
       </a-row>
     </a-form>
-    <a-table :columns="columns" :data-source="tableData" row-key="id" style="margin-top:32px;" bordered size="small" />
+    <a-table 
+      :columns="columns" 
+      :data-source="tableData" 
+      row-key="id" 
+      :scroll="{ x: 'max-content' }" 
+      :pagination="{ pageSize: 10 }"
+      style="margin: 24px 12px" 
+      bordered 
+      size="small" 
+    />
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, computed, nextTick } from 'vue';
+import { ref, reactive, computed, h } from 'vue';
 import { message } from 'ant-design-vue';
 import * as XLSX from 'xlsx';
 
@@ -172,19 +206,47 @@ const form = reactive({
 const blockError = ref(false);
 const tableData = ref<any[]>([]);
 const columns = [
-  { title: 'id', dataIndex: 'id' },
-  { title: 'LevelName', dataIndex: 'LevelName' },
-  { title: 'blockType', dataIndex: 'blockType' },
-  { title: 'levelHeight', dataIndex: 'levelHeight' },
-  { title: 'LevelConfig', dataIndex: 'LevelConfig' },
-  { title: 'refreshModel', dataIndex: 'refreshModel' },
-  { title: 'winType', dataIndex: 'winType' },
-  { title: 'WinStar1', dataIndex: 'WinStar1' },
-  { title: 'diamondStarNum2', dataIndex: 'diamondStarNum2' },
-  { title: 'diamondStarColor2', dataIndex: 'diamondStarColor2' },
-  { title: 'InitialRefresh', dataIndex: 'InitialRefresh' },
-  { title: 'cubecolor', dataIndex: 'cubecolor' },
-  { title: 'videoplay', dataIndex: 'videoplay' }
+  { title: 'ID', dataIndex: 'id', width: 80, fixed: 'left' },
+  { title: '关卡名称', dataIndex: 'LevelName', width: 100 },
+  { title: '块数', dataIndex: 'blockType', width: 80 },
+  { title: '层高', dataIndex: 'levelHeight', width: 80 },
+  { title: '配置', dataIndex: 'LevelConfig', width: 120 },
+  { title: '刷新模型', dataIndex: 'refreshModel', width: 120 },
+  { title: '胜利类型', dataIndex: 'winType', width: 100, 
+    customRender: ({ text }: { text: string }) => text === '1' ? '积分通关' : '收集通关' },
+  { title: '星级分数', dataIndex: 'WinStar1', width: 150,
+    customRender: ({ text }: { text: any[] }) => Array.isArray(text) ? text.join(' / ') : '' },
+  { title: '钻石数量', dataIndex: 'diamondStarNum2', width: 150,
+    customRender: ({ text }: { text: any[] }) => Array.isArray(text) ? text.join(' / ') : '' },
+  { title: '钻石颜色', dataIndex: 'diamondStarColor2', width: 150,
+    customRender: ({ text }: { text: any[] }) => Array.isArray(text) ? text.join(' / ') : '' },
+  { title: '初始方块', dataIndex: 'InitialRefresh', width: 150,
+    customRender: ({ text }: { text: any[] }) => Array.isArray(text) ? text.join(' / ') : '' },
+  { title: '障碍颜色', dataIndex: 'cubecolor', width: 120,
+    customRender: ({ text }: { text: string }) => {
+      if (!text) return '';
+      return h('div', { 
+        style: {
+          display: 'flex',
+          alignItems: 'center'
+        }
+      }, [
+        h('span', {
+          style: {
+            display: 'inline-block',
+            width: '16px',
+            height: '16px',
+            background: `#${text}`,
+            border: '1px solid #ccc',
+            marginRight: '8px',
+            borderRadius: '2px'
+          }
+        }),
+        text
+      ]);
+    }
+  },
+  { title: '视频', dataIndex: 'videoplay', width: 120 }
 ];
 
 const modelGroupOptions = ref<any[]>([]);
